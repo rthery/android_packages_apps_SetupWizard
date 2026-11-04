@@ -14,10 +14,17 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.icu.text.TimeZoneFormat;
+import android.icu.text.TimeZoneNames;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
+import android.timezone.CountryTimeZones;
+import android.timezone.CountryTimeZones.TimeZoneMapping;
+import android.timezone.TimeZoneFinder;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.DatePicker;
@@ -35,8 +42,14 @@ import org.lineageos.setupwizard.util.SetupWizardUtils;
 
 import java.util.Calendar;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 
 public class DateTimeActivity extends BaseSetupWizardActivity implements
@@ -67,8 +80,8 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         getGlifLayout().setDescriptionText(getString(R.string.date_time_summary));
 
         final Spinner spinner = findViewById(R.id.timezone_list);
-        final SimpleAdapter adapter = constructTimezoneAdapter(this);
         mCurrentTimeZone = TimeZone.getDefault();
+        final SimpleAdapter adapter = constructTimezoneAdapter(this, mCurrentTimeZone);
         View dateView = findViewById(R.id.date_item);
         dateView.setOnClickListener((view) -> showDatePicker());
         View timeView = findViewById(R.id.time_item);
@@ -185,12 +198,13 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         mDateTextView.setText(shortDateFormat.format(now.getTime()));
     }
 
-    private static SimpleAdapter constructTimezoneAdapter(Context context) {
+    private static SimpleAdapter constructTimezoneAdapter(Context context, TimeZone current) {
         final String[] from = new String[]{KEY_DISPLAYNAME, KEY_GMT};
         final int[] to = new int[]{android.R.id.text1, android.R.id.text2};
 
         final TimeZoneComparator comparator = new TimeZoneComparator(KEY_OFFSET);
         final List<Map<String, Object>> sortedList = ZoneGetter.getZonesList(context);
+        addLocalZones(context, sortedList, current);
         sortedList.sort(comparator);
 
         return new SimpleAdapter(context,
@@ -198,6 +212,66 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
                 R.layout.date_time_setup_custom_list_item_2,
                 from,
                 to);
+    }
+
+    /**
+     * The zones from timezones.xml only cover one city per offset, so add the zones of the
+     * country we are in and the current zone, letting the current zone be pre-selected.
+     */
+    private static void addLocalZones(Context context, List<Map<String, Object>> zones,
+            TimeZone current) {
+        final Set<String> knownIds = new HashSet<>();
+        for (Map<String, Object> zone : zones) {
+            knownIds.add((String) zone.get(KEY_ID));
+        }
+
+        final long now = System.currentTimeMillis();
+        final Set<String> localIds = new LinkedHashSet<>();
+        final CountryTimeZones countryZones = TimeZoneFinder.getInstance()
+                .lookupCountryTimeZones(getCountryIso(context));
+        if (countryZones != null) {
+            for (TimeZoneMapping mapping : countryZones.getEffectiveTimeZoneMappingsAt(now)) {
+                localIds.add(mapping.getTimeZoneId());
+            }
+        }
+        localIds.add(current.getID());
+        localIds.removeAll(knownIds);
+        if (localIds.isEmpty()) {
+            return;
+        }
+
+        final Locale locale = context.getResources().getConfiguration().getLocales().get(0);
+        final TimeZoneFormat tzFormatter = TimeZoneFormat.getInstance(locale);
+        final TimeZoneNames tzNames = TimeZoneNames.getInstance(locale);
+        final Date date = new Date(now);
+        for (String id : localIds) {
+            final TimeZone tz = TimeZone.getTimeZone(id);
+            String name = tzNames.getExemplarLocationName(
+                    android.icu.util.TimeZone.getCanonicalID(id));
+            if (TextUtils.isEmpty(name)) {
+                name = tz.getDisplayName(tz.inDaylightTime(date), TimeZone.LONG, locale);
+            }
+            final Map<String, Object> zone = new HashMap<>();
+            zone.put(KEY_ID, id);
+            zone.put(KEY_DISPLAYNAME, name);
+            zone.put(KEY_GMT,
+                    ZoneGetter.getGmtOffsetText(tzFormatter, locale, tz, date).toString());
+            zone.put(KEY_OFFSET, tz.getOffset(now));
+            zones.add(zone);
+        }
+    }
+
+    /** ISO 3166 country code of the network, then of the SIM, then of the locale. */
+    private static String getCountryIso(Context context) {
+        final TelephonyManager tm = context.getSystemService(TelephonyManager.class);
+        String iso = tm != null ? tm.getNetworkCountryIso() : null;
+        if (TextUtils.isEmpty(iso) && tm != null) {
+            iso = tm.getSimCountryIso();
+        }
+        if (TextUtils.isEmpty(iso)) {
+            iso = context.getResources().getConfiguration().getLocales().get(0).getCountry();
+        }
+        return iso.toLowerCase(Locale.ROOT);
     }
 
     private static int getTimeZoneIndex(SimpleAdapter adapter, TimeZone tz) {
