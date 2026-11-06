@@ -40,6 +40,8 @@ public class SetupWizardActivity extends AppCompatActivity {
         Intent intent = new Intent(ACTION_LOAD);
         Bundle wizardBundle = new Bundle();
         if (SetupWizardUtils.isOwner()) {
+            SetupWizardUtils.setComponentEnabled(this, FrpActivity.class,
+                    FrpActivity.getConfirmFrpCredentialIntent(this) != null);
             wizardBundle.putString(EXTRA_SCRIPT_URI, getString(R.string.lineage_wizard_script_uri));
         } else if (SetupWizardUtils.isManagedProfile(this)) {
             wizardBundle.putString(EXTRA_SCRIPT_URI,

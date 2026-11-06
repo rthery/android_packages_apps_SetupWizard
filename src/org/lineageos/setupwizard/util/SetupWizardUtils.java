@@ -265,6 +265,14 @@ public class SetupWizardUtils {
                 COMPONENT_ENABLED_STATE_ENABLED);
     }
 
+    public static void setComponentEnabled(Context context, Class<?> cls, boolean enabled) {
+        if (enabled) {
+            enableComponent(context, cls);
+        } else {
+            disableComponent(context, cls);
+        }
+    }
+
     public static void setComponentEnabledState(Context context, ComponentName componentName,
             int enabledState) {
         context.getPackageManager().setComponentEnabledSetting(componentName,

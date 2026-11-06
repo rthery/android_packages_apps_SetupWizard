@@ -17,6 +17,11 @@ public class BiometricActivity extends SubBaseActivity {
 
     @Override
     protected void onStartSubactivity() {
+        if (FrpActivity.isFrpActive(this)) {
+            SetupWizardUtils.disableComponent(this, ScreenLockActivity.class);
+            finishAction(RESULT_SKIP);
+            return;
+        }
         if (!SetupWizardUtils.hasBiometric(this)) {
             SetupWizardUtils.enableComponent(this, ScreenLockActivity.class);
             finishAction(RESULT_SKIP);

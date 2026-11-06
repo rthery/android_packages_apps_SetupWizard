@@ -27,6 +27,10 @@
     <string name="emergency_call">Emergency call</string>
     <string name="accessibility_settings">Accessibility settings</string>
 
+    <!-- Factory reset protection page -->
+    <string name="frp_title">Verify it\'s you</string>
+    <string name="frp_summary">This device was reset. Enter the screen lock used on this device before the reset. If you skip, you won\'t be able to set a screen lock or turn on OEM unlocking.</string>
+
     <!-- Locale page -->
     <string name="setup_locale">Language</string>
     <string name="sim_locale_changed">%1$s SIM detected</string>

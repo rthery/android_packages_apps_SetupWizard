@@ -6,6 +6,8 @@
 
 package org.lineageos.setupwizard;
 
+import static com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP;
+
 import android.content.Intent;
 
 public class ScreenLockActivity extends SubBaseActivity {
@@ -14,6 +16,10 @@ public class ScreenLockActivity extends SubBaseActivity {
 
     @Override
     protected void onStartSubactivity() {
+        if (FrpActivity.isFrpActive(this)) {
+            finishAction(RESULT_SKIP);
+            return;
+        }
         Intent intent = new Intent(ACTION_SETUP_LOCKSCREEN);
         startSubactivity(intent);
     }
